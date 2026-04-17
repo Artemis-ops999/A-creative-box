@@ -1,21 +1,630 @@
-@layer utilities {
-    .content-auto {
-        content-visibility: auto;
+// ==================== 配置 ====================
+const styleTags = [
+  '极简主义','现代简约','北欧风格','日式和风','工业风',
+  '复古怀旧','波普艺术','赛博朋克','蒸汽波','孟菲斯风格',
+  '扁平化','拟物化','3D立体','手绘插画','水彩风格',
+  '国潮风','新中式','欧式古典','哥特式','巴洛克'
+];
+const layoutTags = [
+  '居中对齐','左对齐','网格布局','不对称布局','留白充足',
+  '满版构图','分割式布局','对角线构图','三角形构图','S形构图',
+  '层次感强','扁平化布局','卡片式设计','单栏布局','多栏布局'
+];
+const fontTags = [
+  '无衬线字体','衬线字体','手写体','艺术字体','粗体字',
+  '细体字','等宽字体','书法字体','卡通字体','复古字体'
+];
+const moodTags = [
+  '清新自然','温暖治愈','冷静专业','活力四射','优雅高贵',
+  '神秘深邃','科技未来','文艺复古','可爱俏皮','严肃庄重'
+];
+
+// 全局
+let currentImageData = null;
+let currentExtractedData = null;
+let compareImage1Data = null, compareImage2Data = null;
+let compareExtracted1 = null, compareExtracted2 = null;
+let favorites = JSON.parse(localStorage.getItem('styleFavorites') || '[]');
+
+// DOM
+const elements = {
+  navTabs: document.querySelectorAll('.nav-tab'),
+  mobileNavTabs: document.querySelectorAll('.mobile-nav-tab'),
+  mobileMenuBtn: document.getElementById('mobile-menu-btn'),
+  mobileMenu: document.getElementById('mobile-menu'),
+  favCount: document.getElementById('fav-count'),
+  pages: document.querySelectorAll('.page'),
+  extractPage: document.getElementById('extract-page'),
+  comparePage: document.getElementById('compare-page'),
+  favoritesPage: document.getElementById('favorites-page'),
+
+  uploadArea: document.getElementById('upload-area'),
+  fileInput: document.getElementById('file-input'),
+  imageUrl: document.getElementById('image-url'),
+  loadUrlBtn: document.getElementById('load-url-btn'),
+  previewContainer: document.getElementById('preview-container'),
+  previewImage: document.getElementById('preview-image'),
+  clearImageBtn: document.getElementById('clear-image-btn'),
+  extractBtn: document.getElementById('extract-btn'),
+  resultsContainer: document.getElementById('results-container'),
+
+  colorsContainer: document.getElementById('colors-container'),
+  colorValues: document.getElementById('color-values'),
+  copyColorsBtn: document.getElementById('copy-colors-btn'),
+  styleTags: document.getElementById('style-tags'),
+  layoutTags: document.getElementById('layout-tags'),
+  fontTags: document.getElementById('font-tags'),
+  moodTags: document.getElementById('mood-tags'),
+  promptText: document.getElementById('prompt-text'),
+  copyPromptBtn: document.getElementById('copy-prompt-btn'),
+  regeneratePromptBtn: document.getElementById('regenerate-prompt-btn'),
+  addToFavBtn: document.getElementById('add-to-fav-btn'),
+
+  compareUpload1: document.getElementById('compare-upload-1'),
+  compareUpload2: document.getElementById('compare-upload-2'),
+  compareFile1: document.getElementById('compare-file-1'),
+  compareFile2: document.getElementById('compare-file-2'),
+  comparePreview1: document.getElementById('compare-preview-1'),
+  comparePreview2: document.getElementById('compare-preview-2'),
+  compareImg1: document.getElementById('compare-img-1'),
+  compareImg2: document.getElementById('compare-img-2'),
+  extractCompare1: document.getElementById('extract-compare-1'),
+  extractCompare2: document.getElementById('extract-compare-2'),
+  compareResults: document.getElementById('compare-results'),
+  compareResults1: document.getElementById('compare-results-1'),
+  compareResults2: document.getElementById('compare-results-2'),
+  compareSummary: document.getElementById('compare-summary'),
+
+  categoryBtns: document.querySelectorAll('.category-btn'),
+  favoritesContainer: document.getElementById('favorites-container'),
+  emptyFavorites: document.getElementById('empty-favorites'),
+  clearAllFav: document.getElementById('clear-all-fav'),
+  goToExtract: document.getElementById('go-to-extract'),
+
+  toast: document.getElementById('toast'),
+  toastMessage: document.getElementById('toast-message')
+};
+
+// ==================== 初始化 ====================
+window.addEventListener('DOMContentLoaded', init);
+function init() {
+  updateFavCount();
+  setupEventListeners();
+  checkFavoritesEmpty();
+}
+
+// ==================== 事件监听 ====================
+function setupEventListeners() {
+  // 导航
+  elements.navTabs.forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.id.replace('tab-', '')));
+  });
+  elements.mobileNavTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      switchTab(tab.id.replace('mobile-tab-', ''));
+      elements.mobileMenu.classList.add('hidden');
+    });
+  });
+  elements.mobileMenuBtn.addEventListener('click', () => {
+    elements.mobileMenu.classList.toggle('hidden');
+  });
+
+  // 上传
+  elements.uploadArea.addEventListener('click', () => elements.fileInput.click());
+  elements.fileInput.addEventListener('change', handleFileUpload);
+  // 拖拽
+  elements.uploadArea.addEventListener('dragover', e => {
+    e.preventDefault();
+    elements.uploadArea.classList.add('border-primary');
+  });
+  elements.uploadArea.addEventListener('dragleave', () => {
+    elements.uploadArea.classList.remove('border-primary');
+  });
+  elements.uploadArea.addEventListener('drop', e => {
+    e.preventDefault();
+    elements.uploadArea.classList.remove('border-primary');
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+
+  // URL加载
+  elements.loadUrlBtn.addEventListener('click', loadImageFromUrl);
+  elements.imageUrl.addEventListener('keypress', e => {
+    if (e.key === 'Enter') loadImageFromUrl();
+  });
+
+  // 清除
+  elements.clearImageBtn.addEventListener('click', clearImage);
+  // 提取
+  elements.extractBtn.addEventListener('click', extractStyle);
+
+  // 复制
+  elements.copyColorsBtn.addEventListener('click', copyColors);
+  elements.copyPromptBtn.addEventListener('click', copyPrompt);
+  // 重新生成
+  elements.regeneratePromptBtn.addEventListener('click', regeneratePrompt);
+  // 收藏
+  elements.addToFavBtn.addEventListener('click', addToFavorites);
+
+  // 对比
+  elements.compareUpload1.addEventListener('click', () => elements.compareFile1.click());
+  elements.compareUpload2.addEventListener('click', () => elements.compareFile2.click());
+  elements.compareFile1.addEventListener('change', e => handleCompareFile(e, 1));
+  elements.compareFile2.addEventListener('change', e => handleCompareFile(e, 2));
+  elements.extractCompare1.addEventListener('click', () => extractCompareStyle(1));
+  elements.extractCompare2.addEventListener('click', () => extractCompareStyle(2));
+
+  // 收藏页
+  elements.categoryBtns.forEach(btn => {
+    btn.addEventListener('click', () => filterFavorites(btn.dataset.category));
+  });
+  elements.clearAllFav.addEventListener('click', clearAllFavorites);
+  elements.goToExtract.addEventListener('click', () => switchTab('extract'));
+}
+
+// 切换页面
+function switchTab(tabName) {
+  elements.navTabs.forEach(tab => {
+    tab.classList.remove('active','text-primary');
+    tab.classList.add('text-neutral-400');
+  });
+  elements.mobileNavTabs.forEach(tab => {
+    tab.classList.remove('active','text-primary');
+    tab.classList.add('text-neutral-400');
+  });
+  document.getElementById(`tab-${tabName}`)?.classList.add('active','text-primary');
+  document.getElementById(`mobile-tab-${tabName}`)?.classList.add('active','text-primary');
+
+  elements.pages.forEach(page => page.classList.add('hidden'));
+  document.getElementById(`${tabName}-page`).classList.remove('hidden');
+
+  if (tabName === 'favorites') renderFavorites();
+}
+
+// 处理文件上传
+function handleFileUpload(e) {
+  if (e.target.files.length) handleFile(e.target.files[0]);
+}
+function handleFile(file) {
+  if (!file.type.startsWith('image/')) {
+    showToast('请上传图片文件', 'error');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    currentImageData = e.target.result;
+    showPreview(currentImageData);
+  };
+  reader.readAsDataURL(file);
+}
+
+// 预览
+function showPreview(imageData) {
+  elements.previewImage.src = imageData;
+  elements.previewContainer.classList.remove('hidden');
+  elements.extractBtn.disabled = false;
+  elements.resultsContainer.classList.add('hidden');
+}
+
+// 清除
+function clearImage() {
+  currentImageData = null;
+  currentExtractedData = null;
+  elements.previewContainer.classList.add('hidden');
+  elements.previewImage.src = '';
+  elements.extractBtn.disabled = true;
+  elements.resultsContainer.classList.add('hidden');
+  elements.fileInput.value = '';
+  elements.imageUrl.value = '';
+}
+
+// 从URL加载
+function loadImageFromUrl() {
+  const url = elements.imageUrl.value.trim();
+  if (!url) { showToast('请输入图片链接', 'error'); return; }
+  try { new URL(url); } catch { showToast('请输入有效URL', 'error'); return; }
+
+  elements.loadUrlBtn.disabled = true;
+  elements.loadUrlBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i> 加载中';
+
+  const img = new Image();
+  // 本地file://下crossOrigin会报错，这里只在http(s)才设置
+  if (url.startsWith('http')) img.crossOrigin = 'anonymous';
+
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    currentImageData = canvas.toDataURL('image/jpeg', 0.9);
+    showPreview(currentImageData);
+    elements.loadUrlBtn.disabled = false;
+    elements.loadUrlBtn.innerHTML = '加载';
+  };
+  img.onerror = () => {
+    showToast('图片加载失败', 'error');
+    elements.loadUrlBtn.disabled = false;
+    elements.loadUrlBtn.innerHTML = '加载';
+  };
+  img.src = url;
+}
+
+// ==================== 核心：提取风格（修复版） ====================
+function extractStyle() {
+  if (!currentImageData) return;
+
+  elements.extractBtn.disabled = true;
+  elements.extractBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i> 提取中...';
+
+  const img = new Image();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    elements.extractBtn.disabled = false;
+    elements.extractBtn.innerHTML = '<i class="fa fa-magic mr-2"></i> 提取视觉风格';
+    showToast('提取超时：本地file://协议限制或跨域', 'error');
+  }, 10000);
+
+  // 先绑事件再设src
+  img.onload = () => {
+    if (timedOut) return;
+    clearTimeout(timer);
+    try {
+      const colors = extractColors(img);
+      const styleAnalysis = analyzeStyle(colors, img);
+      const prompt = generatePrompt(colors, styleAnalysis);
+      currentExtractedData = {
+        imageData: currentImageData,
+        colors,
+        style: styleAnalysis,
+        prompt,
+        timestamp: Date.now()
+      };
+      displayResults(colors, styleAnalysis, prompt);
+      elements.extractBtn.disabled = false;
+      elements.extractBtn.innerHTML = '<i class="fa fa-magic mr-2"></i> 提取视觉风格';
+      elements.resultsContainer.classList.remove('hidden');
+      elements.resultsContainer.scrollIntoView({ behavior: 'smooth' });
+    } catch (err) {
+      console.error('提取失败', err);
+      elements.extractBtn.disabled = false;
+      elements.extractBtn.innerHTML = '<i class="fa fa-magic mr-2"></i> 提取视觉风格';
+      showToast('提取失败：Canvas安全限制（本地用http服务器运行）', 'error');
     }
-    .card-shadow {
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  };
+
+  img.onerror = () => {
+    clearTimeout(timer);
+    elements.extractBtn.disabled = false;
+    elements.extractBtn.innerHTML = '<i class="fa fa-magic mr-2"></i> 提取视觉风格';
+    showToast('图片加载/解析失败', 'error');
+  };
+
+  img.src = currentImageData;
+}
+
+// 提取颜色
+function extractColors(img, count = 5) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = Math.min(img.width, 100);
+  const h = canvas.height = Math.min(img.height, 100);
+  ctx.drawImage(img, 0, 0, w, h);
+  const data = ctx.getImageData(0, 0, w, h).data;
+  const colorCount = {};
+  for (let i=0; i<data.length; i+=4) {
+    const r = Math.round(data[i]/32)*32;
+    const g = Math.round(data[i+1]/32)*32;
+    const b = Math.round(data[i+2]/32)*32;
+    const a = data[i+3];
+    if (a < 128) continue;
+    const hex = rgbToHex(r,g,b);
+    colorCount[hex] = (colorCount[hex]||0)+1;
+  }
+  return Object.entries(colorCount)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,count)
+    .map(e=>e[0]);
+}
+
+// 工具
+function rgbToHex(r,g,b) {
+  return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+function hexToRgb(hex) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return m ? {r:parseInt(m[1],16),g:parseInt(m[2],16),b:parseInt(m[3],16)} : null;
+}
+function getBrightness(hex) {
+  const {r,g,b} = hexToRgb(hex);
+  return (r*299+g*587+b*114)/1000;
+}
+
+// 分析风格
+function analyzeStyle(colors, img) {
+  const bright = colors.reduce((s,c)=>s+getBrightness(c),0)/colors.length;
+  const isLight = bright > 128;
+  let sat = 0;
+  colors.forEach(c => {
+    const {r,g,b} = hexToRgb(c);
+    const max = Math.max(r,g,b), min = Math.min(r,g,b);
+    sat += max===0 ? 0 : (max-min)/max;
+  });
+  sat /= colors.length;
+
+  const pick = (arr,n) => [...arr].sort(()=>0.5-Math.random()).slice(0,n);
+  let st,ly,ft,md;
+  if (isLight && sat < 0.4) {
+    st = ['极简主义','现代简约','北欧风格'];
+    ly = ['留白充足','居中对齐','扁平化布局'];
+    ft = ['无衬线字体','细体字'];
+    md = ['清新自然','冷静专业','优雅高贵'];
+  } else if (sat > 0.6) {
+    st = ['波普艺术','孟菲斯风格','赛博朋克'];
+    ly = ['不对称布局','满版构图','层次感强'];
+    ft = ['粗体字','艺术字体','卡通字体'];
+    md = ['活力四射','科技未来','可爱俏皮'];
+  } else {
+    st = styleTags; ly=layoutTags; ft=fontTags; md=moodTags;
+  }
+  return {
+    style: pick(st,2),
+    layout: pick(ly,2),
+    font: pick(ft,2),
+    mood: pick(md,2),
+    brightness: isLight?'明亮':'深色',
+    saturation: sat<0.3?'低饱和度':sat<0.6?'中等饱和度':'高饱和度'
+  };
+}
+
+// 生成提示词
+function generatePrompt(colors, style) {
+  return `UI设计，${style.style.join('，')}风格，${style.mood.join('，')}氛围，主色调${colors.join(',')}，${style.brightness}，${style.saturation}，${style.layout.join('和')}布局，使用${style.font.join('和')}，留白充足，层次清晰，现代感强，高质量细节`;
+}
+
+// 显示结果
+function displayResults(colors, style, prompt) {
+  elements.colorsContainer.innerHTML = '';
+  elements.colorValues.innerHTML = '';
+  colors.forEach((c,i) => {
+    const br = getBrightness(c);
+    const tc = br>128 ? 'text-neutral-500' : 'text-white';
+    const sw = document.createElement('div');
+    sw.className = `color-swatch h-16 rounded-lg cursor-pointer flex items-end justify-center pb-1 ${tc} text-xs font-medium`;
+    sw.style.backgroundColor = c;
+    sw.textContent = c.toUpperCase();
+    sw.onclick = () => { copyToClipboard(c); showToast(`已复制 ${c}`); };
+    elements.colorsContainer.appendChild(sw);
+    const item = document.createElement('div');
+    item.className = 'flex justify-between';
+    item.innerHTML = `<span>主色${i+1}</span><span>${c.toUpperCase()}</span>`;
+    elements.colorValues.appendChild(item);
+  });
+
+  function showTags(el, tags) {
+    el.innerHTML = '';
+    tags.forEach(t => {
+      const span = document.createElement('span');
+      span.className = 'px-3 py-1 bg-neutral-50 text-neutral-400 rounded-full text-sm';
+      span.textContent = t;
+      el.appendChild(span);
+    });
+  }
+  showTags(elements.styleTags, style.style);
+  showTags(elements.layoutTags, style.layout);
+  showTags(elements.fontTags, style.font);
+  showTags(elements.moodTags, style.mood);
+
+  elements.promptText.value = prompt;
+}
+
+// ==================== 复制/收藏/对比（略，同之前，已兼容） ====================
+function copyColors() {
+  if (!currentExtractedData) return;
+  copyToClipboard(currentExtractedData.colors.join(','));
+  showToast('已复制色值');
+}
+function copyPrompt() {
+  if (!currentExtractedData) return;
+  copyToClipboard(currentExtractedData.prompt);
+  showToast('已复制提示词');
+}
+function regeneratePrompt() {
+  if (!currentExtractedData) return;
+  const p = generatePrompt(currentExtractedData.colors, analyzeStyle(currentExtractedData.colors, new Image()));
+  currentExtractedData.prompt = p;
+  elements.promptText.value = p;
+  showToast('已重新生成');
+}
+function addToFavorites() {
+  if (!currentExtractedData) return;
+  const exists = favorites.some(f => f.imageData === currentExtractedData.imageData);
+  if (exists) { showToast('已收藏过', 'warning'); return; }
+  const cat = currentExtractedData.style.style.includes('极简') ? 'minimal' :
+              currentExtractedData.style.style.includes('现代') ? 'modern' :
+              currentExtractedData.style.style.includes('复古') ? 'vintage' : 'other';
+  favorites.unshift({...currentExtractedData, id:Date.now(), category:cat});
+  localStorage.setItem('styleFavorites', JSON.stringify(favorites));
+  updateFavCount();
+  showToast('已收藏');
+}
+
+// 对比
+function handleCompareFile(e, idx) {
+  if (!e.target.files.length) return;
+  const f = e.target.files[0];
+  if (!f.type.startsWith('image/')) { showToast('请上传图片', 'error'); return; }
+  const r = new FileReader();
+  r.onload = ev => {
+    const d = ev.target.result;
+    if (idx === 1) {
+      compareImage1Data = d;
+      elements.compareImg1.src = d;
+      elements.comparePreview1.classList.remove('hidden');
+      elements.extractCompare1.disabled = false;
+    } else {
+      compareImage2Data = d;
+      elements.compareImg2.src = d;
+      elements.comparePreview2.classList.remove('hidden');
+      elements.extractCompare2.disabled = false;
     }
-    .hover-lift {
-        transition: transform 0.2s, box-shadow 0.2s;
+  };
+  r.readAsDataURL(f);
+}
+
+function extractCompareStyle(idx) {
+  const d = idx===1 ? compareImage1Data : compareImage2Data;
+  if (!d) return;
+  const btn = idx===1 ? elements.extractCompare1 : elements.extractCompare2;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i> 提取中...';
+
+  const img = new Image();
+  img.onload = () => {
+    try {
+      const c = extractColors(img);
+      const s = analyzeStyle(c, img);
+      if (idx === 1) compareExtracted1 = {colors:c, style:s};
+      else compareExtracted2 = {colors:c, style:s};
+      btn.innerHTML = '提取完成';
+      btn.classList.remove('bg-primary');
+      btn.classList.add('bg-green-500');
+      if (compareExtracted1 && compareExtracted2) displayCompareResults();
+    } catch (err) {
+      btn.disabled = false;
+      btn.innerHTML = '提取风格';
+      showToast('对比提取失败：本地限制', 'error');
     }
-    .hover-lift:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-    }
-    .color-swatch {
-        transition: transform 0.15s;
-    }
-    .color-swatch:hover {
-        transform: scale(1.1);
-    }
+  };
+  img.onerror = () => {
+    btn.disabled = false;
+    btn.innerHTML = '提取风格';
+    showToast('图片失败', 'error');
+  };
+  img.src = d;
+}
+
+function displayCompareResults() {
+  function html(d) {
+    return `
+      <div><h5 class="text-sm font-medium text-neutral-400 mb-2">主色调</h5>
+        <div class="flex gap-2 mb-3">${d.colors.map(c=>`<div class="w-8 h-8 rounded" style="background:${c}"></div>`).join('')}</div>
+      </div>
+      <div><h5 class="text-sm font-medium text-neutral-400 mb-2">风格</h5>
+        <div class="flex flex-wrap gap-1">${d.style.style.map(t=>`<span class="px-2 py-0.5 bg-neutral-50 text-neutral-300 rounded text-xs">${t}</span>`).join('')}</div>
+      </div>
+      <div><h5 class="text-sm font-medium text-neutral-400 mb-2">版式</h5>
+        <div class="flex flex-wrap gap-1">${d.style.layout.map(t=>`<span class="px-2 py-0.5 bg-neutral-50 text-neutral-300 rounded text-xs">${t}</span>`).join('')}</div>
+      </div>
+      <div><h5 class="text-sm font-medium text-neutral-400 mb-2">字体</h5>
+        <div class="flex flex-wrap gap-1">${d.style.font.map(t=>`<span class="px-2 py-0.5 bg-neutral-50 text-neutral-300 rounded text-xs">${t}</span>`).join('')}</div>
+      </div>
+      <div><h5 class="text-sm font-medium text-neutral-400 mb-2">氛围</h5>
+        <div class="flex flex-wrap gap-1">${d.style.mood.map(t=>`<span class="px-2 py-0.5 bg-neutral-50 text-neutral-300 rounded text-xs">${t}</span>`).join('')}</div>
+      </div>`;
+  }
+  elements.compareResults1.innerHTML = html(compareExtracted1);
+  elements.compareResults2.innerHTML = html(compareExtracted2);
+  const commonStyle = compareExtracted1.style.style.filter(t => compareExtracted2.style.style.includes(t));
+  const commonMood = compareExtracted1.style.mood.filter(t => compareExtracted2.style.mood.includes(t));
+  elements.compareSummary.innerHTML = `
+    <p><strong>共同风格：</strong>${commonStyle.length?commonStyle.join('、'):'无'}</p>
+    <p><strong>共同氛围：</strong>${commonMood.length?commonMood.join('、'):'无'}</p>
+    <p><strong>色调：</strong>图1${compareExtracted1.style.brightness}，图2${compareExtracted2.style.brightness}</p>
+    <p><strong>饱和度：</strong>图1${compareExtracted1.style.saturation}，图2${compareExtracted2.style.saturation}</p>
+  `;
+  elements.compareResults.classList.remove('hidden');
+}
+
+// 收藏列表
+function renderFavorites(cat='all') {
+  elements.favoritesContainer.innerHTML = '';
+  let f = favorites;
+  if (cat!=='all') f = favorites.filter(x => x.category===cat);
+  elements.emptyFavorites.classList.toggle('hidden', f.length>0);
+  f.forEach(item => {
+    const c = document.createElement('div');
+    c.className = 'bg-white rounded-xl card-shadow p-4 hover-lift';
+    c.innerHTML = `
+      <div class="flex gap-4 mb-4">
+        <img src="${item.imageData}" class="w-20 h-20 object-cover rounded-lg">
+        <div class="flex-1">
+          <div class="flex gap-1 mb-2">${item.colors.slice(0,4).map(x=>`<div class="w-6 h-6 rounded" style="background:${x}"></div>`).join('')}</div>
+          <div class="flex flex-wrap gap-1">${item.style.style.map(x=>`<span class="px-2 py-0.5 bg-neutral-50 text-neutral-300 rounded text-xs">${x}</span>`).join('')}</div>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button class="copy-fav flex-1 px-3 py-2 bg-primary text-white rounded-lg text-sm" data-id="${item.id}">
+          <i class="fa fa-copy mr-1"></i>复制提示词
+        </button>
+        <button class="del-fav px-3 py-2 bg-red-50 text-red-500 rounded-lg text-sm" data-id="${item.id}">
+          <i class="fa fa-trash"></i>
+        </button>
+      </div>`;
+    elements.favoritesContainer.appendChild(c);
+  });
+  document.querySelectorAll('.copy-fav').forEach(b => {
+    b.addEventListener('click', e => {
+      const id = +e.currentTarget.dataset.id;
+      const fav = favorites.find(x => x.id===id);
+      if (fav) { copyToClipboard(fav.prompt); showToast('已复制'); }
+    });
+  });
+  document.querySelectorAll('.del-fav').forEach(b => {
+    b.addEventListener('click', e => {
+      const id = +e.currentTarget.dataset.id;
+      favorites = favorites.filter(x => x.id!==id);
+      localStorage.setItem('styleFavorites', JSON.stringify(favorites));
+      updateFavCount();
+      renderFavorites();
+      showToast('已删除');
+    });
+  });
+}
+
+function filterFavorites(cat) {
+  elements.categoryBtns.forEach(b => {
+    b.classList.remove('active','bg-primary','text-white');
+    b.classList.add('bg-neutral-50','text-neutral-400');
+  });
+  document.querySelector(`[data-category="${cat}"]`).classList.add('active','bg-primary','text-white');
+  renderFavorites(cat);
+}
+
+function clearAllFavorites() {
+  if (!confirm('确定清空？')) return;
+  favorites = [];
+  localStorage.setItem('styleFavorites', '[]');
+  updateFavCount();
+  renderFavorites();
+  showToast('已清空');
+}
+
+function updateFavCount() {
+  elements.favCount.textContent = favorites.length;
+}
+function checkFavoritesEmpty() {
+  elements.emptyFavorites.classList.toggle('hidden', favorites.length>0);
+}
+
+// 工具
+function copyToClipboard(text) {
+  navigator.clipboard?.writeText(text) || (() => {
+    const t = document.createElement('textarea');
+    t.value = text; document.body.appendChild(t);
+    t.select(); document.execCommand('copy');
+    document.body.removeChild(t);
+  })();
+}
+
+function showToast(msg, type='success') {
+  elements.toastMessage.textContent = msg;
+  elements.toast.classList.remove('bg-neutral-500','bg-red-500','bg-yellow-500');
+  if (type==='error') elements.toast.classList.add('bg-red-500');
+  else if (type==='warning') elements.toast.classList.add('bg-yellow-500');
+  else elements.toast.classList.add('bg-neutral-500');
+  elements.toast.classList.remove('translate-y-20','opacity-0');
+  setTimeout(() => {
+    elements.toast.classList.add('translate-y-20','opacity-0');
+  }, 3000);
 }
