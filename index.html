@@ -1,338 +1,309 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StyleExtractor - 视觉风格提取工具</title>
-    <!-- 外部资源 -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
-    
-    <!-- ==================== 关键修改位置1: 自定义配色方案 ==================== -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#165DFF', // 主色调 - 可修改为你喜欢的颜色
-                        secondary: '#FF7D00', // 强调色 - 用于按钮和重要元素
-                        neutral: {
-                            50: '#F5F7FA',
-                            100: '#E5E6EB',
-                            200: '#C9CDD4',
-                            300: '#86909C',
-                            400: '#4E5969',
-                            500: '#1D2129',
-                        }
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'system-ui', 'sans-serif'],
-                    },
-                }
-            }
-        }
-    </script>
-    
-    <!-- 引入自定义CSS -->
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StyleExtractor - 视觉风格提取工具</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css"
+    rel="stylesheet"
+  />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: "#165DFF",
+            secondary: "#FF7D00",
+            neutral: {
+              50: "#F5F7FA",
+              100: "#E5E6EB",
+              200: "#C9CDD4",
+              300: "#86909C",
+              400: "#4E5969",
+              500: "#1D2129",
+            },
+          },
+          fontFamily: {
+            sans: ["Inter", "system-ui", "sans-serif"],
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body class="bg-neutral-50 text-neutral-500 min-h-screen flex flex-col">
-    <!-- 导航栏 -->
-    <header class="bg-white card-shadow sticky top-0 z-50">
-        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-            <div class="flex items-center space-x-2">
-                <i class="fa fa-paint-brush text-primary text-2xl"></i>
-                <h1 class="text-xl font-bold text-neutral-500">StyleExtractor</h1>
-            </div>
-            
-            <!-- ==================== 关键修改位置2: 导航菜单 ==================== -->
-            <nav class="hidden md:flex items-center space-x-6">
-                <button id="tab-extract" class="nav-tab active text-primary font-medium">风格提取</button>
-                <button id="tab-compare" class="nav-tab text-neutral-400 hover:text-neutral-500">风格对比</button>
-                <button id="tab-favorites" class="nav-tab text-neutral-400 hover:text-neutral-500">
-                    我的收藏 <span id="fav-count" class="bg-primary text-white text-xs px-2 py-0.5 rounded-full ml-1">0</span>
-                </button>
-            </nav>
-            
-            <!-- 移动端菜单按钮 -->
-            <button id="mobile-menu-btn" class="md:hidden text-neutral-400 hover:text-neutral-500">
-                <i class="fa fa-bars text-xl"></i>
-            </button>
-        </div>
-        
-        <!-- 移动端导航菜单 -->
-        <div id="mobile-menu" class="md:hidden hidden bg-white border-t border-neutral-100">
-            <div class="container mx-auto px-4 py-2 flex flex-col space-y-3">
-                <button id="mobile-tab-extract" class="mobile-nav-tab active text-primary font-medium py-2">风格提取</button>
-                <button id="mobile-tab-compare" class="mobile-nav-tab text-neutral-400 py-2">风格对比</button>
-                <button id="mobile-tab-favorites" class="mobile-nav-tab text-neutral-400 py-2">我的收藏</button>
-            </div>
-        </div>
-    </header>
-
-    <!-- 主内容区 -->
-    <main class="flex-grow container mx-auto px-4 py-6 md:py-10">
-        <!-- 风格提取页面 -->
-        <section id="extract-page" class="page">
-            <div class="max-w-4xl mx-auto">
-                <div class="text-center mb-8">
-                    <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-neutral-500 mb-2">一键提取图片视觉风格</h2>
-                    <p class="text-neutral-300 max-w-2xl mx-auto">上传图片或输入图片链接，自动提取色彩、字体、版式和风格描述，生成可直接使用的AI设计提示词</p>
-                </div>
-                
-                <!-- 上传区域 -->
-                <div class="bg-white rounded-xl card-shadow p-6 mb-8">
-                    <div class="flex flex-col md:flex-row gap-4 mb-6">
-                        <div class="flex-1">
-                            <label class="block text-neutral-400 mb-2 font-medium">上传图片</label>
-                            <div id="upload-area" class="border-2 border-dashed border-neutral-100 rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors">
-                                <input type="file" id="file-input" accept="image/*" class="hidden">
-                                <i class="fa fa-cloud-upload text-4xl text-neutral-200 mb-3"></i>
-                                <p class="text-neutral-300 mb-1">点击或拖拽图片到这里</p>
-                                <p class="text-xs text-neutral-200">支持 JPG, PNG, GIF, WebP 格式</p>
-                            </div>
-                        </div>
-                        <div class="flex flex-col justify-center">
-                            <div class="text-neutral-200 text-center py-4 md:py-0">
-                                <span class="hidden md:inline">或者</span>
-                                <span class="md:hidden">或者输入链接</span>
-                            </div>
-                        </div>
-                        <div class="flex-1">
-                            <label class="block text-neutral-400 mb-2 font-medium">图片链接</label>
-                            <div class="flex gap-2">
-                                <input type="url" id="image-url" placeholder="https://example.com/image.jpg" 
-                                    class="flex-1 px-4 py-2 border border-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary">
-                                <button id="load-url-btn" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
-                                    加载
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- 图片预览 -->
-                    <div id="preview-container" class="hidden mb-6">
-                        <div class="flex justify-between items-center mb-2">
-                            <h3 class="font-medium text-neutral-400">图片预览</h3>
-                            <button id="clear-image-btn" class="text-neutral-200 hover:text-neutral-400 text-sm">
-                                <i class="fa fa-times mr-1"></i> 清除
-                            </button>
-                        </div>
-                        <div class="border border-neutral-100 rounded-lg overflow-hidden">
-                            <img id="preview-image" src="" alt="预览图片" class="w-full h-auto max-h-80 object-contain">
-                        </div>
-                    </div>
-                    
-                    <!-- 提取按钮 -->
-                    <button id="extract-btn" class="w-full bg-primary text-white py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:bg-neutral-200 disabled:cursor-not-allowed" disabled>
-                        <i class="fa fa-magic mr-2"></i> 提取视觉风格
-                    </button>
-                </div>
-                
-                <!-- 提取结果 -->
-                <div id="results-container" class="hidden space-y-6">
-                    <!-- 颜色提取结果 -->
-                    <div class="bg-white rounded-xl card-shadow p-6 hover-lift">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-lg font-semibold text-neutral-500">
-                                <i class="fa fa-palette text-primary mr-2"></i> 色彩方案
-                            </h3>
-                            <button id="copy-colors-btn" class="text-sm text-primary hover:text-primary/80">
-                                <i class="fa fa-copy mr-1"></i> 复制色值
-                            </button>
-                        </div>
-                        <div id="colors-container" class="grid grid-cols-5 gap-3 mb-4">
-                            <!-- 颜色样本将在这里动态生成 -->
-                        </div>
-                        <div id="color-values" class="text-sm text-neutral-300 space-y-1">
-                            <!-- 色值将在这里显示 -->
-                        </div>
-                    </div>
-                    
-                    <!-- 风格分析结果 -->
-                    <div class="bg-white rounded-xl card-shadow p-6 hover-lift">
-                        <h3 class="text-lg font-semibold text-neutral-500 mb-4">
-                            <i class="fa fa-eye text-primary mr-2"></i> 风格分析
-                        </h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <h4 class="text-neutral-400 font-medium mb-2">整体风格</h4>
-                                <div id="style-tags" class="flex flex-wrap gap-2 mb-4">
-                                    <!-- 风格标签将在这里动态生成 -->
-                                </div>
-                            </div>
-                            <div>
-                                <h4 class="text-neutral-400 font-medium mb-2">版式特征</h4>
-                                <div id="layout-tags" class="flex flex-wrap gap-2 mb-4">
-                                    <!-- 版式标签将在这里动态生成 -->
-                                </div>
-                            </div>
-                            <div>
-                                <h4 class="text-neutral-400 font-medium mb-2">字体特征</h4>
-                                <div id="font-tags" class="flex flex-wrap gap-2 mb-4">
-                                    <!-- 字体标签将在这里动态生成 -->
-                                </div>
-                            </div>
-                            <div>
-                                <h4 class="text-neutral-400 font-medium mb-2">情感氛围</h4>
-                                <div id="mood-tags" class="flex flex-wrap gap-2 mb-4">
-                                    <!-- 情感标签将在这里动态生成 -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- AI提示词生成 -->
-                    <div class="bg-white rounded-xl card-shadow p-6 hover-lift">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-lg font-semibold text-neutral-500">
-                                <i class="fa fa-lightbulb-o text-primary mr-2"></i> AI设计提示词
-                            </h3>
-                            <button id="copy-prompt-btn" class="text-sm text-primary hover:text-primary/80">
-                                <i class="fa fa-copy mr-1"></i> 复制提示词
-                            </button>
-                        </div>
-                        <textarea id="prompt-text" rows="4" class="w-full px-4 py-3 border border-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-neutral-400" readonly></textarea>
-                        <div class="mt-3 flex flex-wrap gap-2">
-                            <button id="regenerate-prompt-btn" class="px-4 py-2 bg-neutral-50 text-neutral-400 rounded-lg hover:bg-neutral-100 transition-colors text-sm">
-                                <i class="fa fa-refresh mr-1"></i> 重新生成
-                            </button>
-                            <button id="add-to-fav-btn" class="px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-colors text-sm">
-                                <i class="fa fa-heart mr-1"></i> 收藏此风格
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-        
-        <!-- 风格对比页面 -->
-        <section id="compare-page" class="page hidden">
-            <div class="max-w-5xl mx-auto">
-                <div class="text-center mb-8">
-                    <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-neutral-500 mb-2">风格对比工具</h2>
-                    <p class="text-neutral-300 max-w-2xl mx-auto">上传两张图片，对比它们的视觉风格差异，找到最适合你的设计方向</p>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                    <!-- 图片1上传区域 -->
-                    <div class="bg-white rounded-xl card-shadow p-6">
-                        <h3 class="font-medium text-neutral-400 mb-4">图片 1</h3>
-                        <div id="compare-upload-1" class="border-2 border-dashed border-neutral-100 rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors mb-4">
-                            <input type="file" id="compare-file-1" accept="image/*" class="hidden">
-                            <i class="fa fa-cloud-upload text-3xl text-neutral-200 mb-2"></i>
-                            <p class="text-neutral-300 text-sm">点击上传图片</p>
-                        </div>
-                        <div id="compare-preview-1" class="hidden mb-4">
-                            <img id="compare-img-1" src="" alt="对比图片1" class="w-full h-48 object-contain border border-neutral-100 rounded-lg">
-                        </div>
-                        <button id="extract-compare-1" class="w-full bg-primary text-white py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:bg-neutral-200 disabled:cursor-not-allowed" disabled>
-                            提取风格
-                        </button>
-                    </div>
-                    
-                    <!-- 图片2上传区域 -->
-                    <div class="bg-white rounded-xl card-shadow p-6">
-                        <h3 class="font-medium text-neutral-400 mb-4">图片 2</h3>
-                        <div id="compare-upload-2" class="border-2 border-dashed border-neutral-100 rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors mb-4">
-                            <input type="file" id="compare-file-2" accept="image/*" class="hidden">
-                            <i class="fa fa-cloud-upload text-3xl text-neutral-200 mb-2"></i>
-                            <p class="text-neutral-300 text-sm">点击上传图片</p>
-                        </div>
-                        <div id="compare-preview-2" class="hidden mb-4">
-                            <img id="compare-img-2" src="" alt="对比图片2" class="w-full h-48 object-contain border border-neutral-100 rounded-lg">
-                        </div>
-                        <button id="extract-compare-2" class="w-full bg-primary text-white py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:bg-neutral-200 disabled:cursor-not-allowed" disabled>
-                            提取风格
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- 对比结果 -->
-                <div id="compare-results" class="hidden">
-                    <div class="bg-white rounded-xl card-shadow p-6 mb-6">
-                        <h3 class="text-lg font-semibold text-neutral-500 mb-6 text-center">风格对比分析</h3>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div>
-                                <h4 class="font-medium text-neutral-400 mb-3 text-center">图片 1 风格特征</h4>
-                                <div id="compare-results-1" class="space-y-4">
-                                    <!-- 对比结果1将在这里显示 -->
-                                </div>
-                            </div>
-                            <div>
-                                <h4 class="font-medium text-neutral-400 mb-3 text-center">图片 2 风格特征</h4>
-                                <div id="compare-results-2" class="space-y-4">
-                                    <!-- 对比结果2将在这里显示 -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-white rounded-xl card-shadow p-6">
-                        <h3 class="text-lg font-semibold text-neutral-500 mb-4 text-center">综合对比</h3>
-                        <div id="compare-summary" class="text-neutral-400 space-y-3">
-                            <!-- 综合对比将在这里显示 -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-        
-        <!-- 我的收藏页面 -->
-        <section id="favorites-page" class="page hidden">
-            <div class="max-w-4xl mx-auto">
-                <div class="text-center mb-8">
-                    <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-neutral-500 mb-2">我的收藏</h2>
-                    <p class="text-neutral-300 max-w-2xl mx-auto">保存你喜欢的视觉风格和提示词，随时查看和使用</p>
-                </div>
-                
-                <!-- 分类筛选 -->
-                <div class="bg-white rounded-xl card-shadow p-4 mb-6">
-                    <div class="flex flex-wrap gap-2">
-                        <button class="category-btn active px-4 py-2 bg-primary text-white rounded-lg text-sm" data-category="all">全部</button>
-                        <button class="category-btn px-4 py-2 bg-neutral-50 text-neutral-400 rounded-lg hover:bg-neutral-100 text-sm" data-category="minimal">极简风格</button>
-                        <button class="category-btn px-4 py-2 bg-neutral-50 text-neutral-400 rounded-lg hover:bg-neutral-100 text-sm" data-category="modern">现代风格</button>
-                        <button class="category-btn px-4 py-2 bg-neutral-50 text-neutral-400 rounded-lg hover:bg-neutral-100 text-sm" data-category="vintage">复古风格</button>
-                        <button class="category-btn px-4 py-2 bg-neutral-50 text-neutral-400 rounded-lg hover:bg-neutral-100 text-sm" data-category="other">其他风格</button>
-                        <button id="clear-all-fav" class="ml-auto px-4 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm">
-                            <i class="fa fa-trash mr-1"></i> 清空收藏
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- 收藏列表 -->
-                <div id="favorites-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- 收藏项将在这里动态生成 -->
-                </div>
-                
-                <!-- 空状态 -->
-                <div id="empty-favorites" class="text-center py-16">
-                    <i class="fa fa-heart-o text-5xl text-neutral-200 mb-4"></i>
-                    <h3 class="text-neutral-300 font-medium mb-2">还没有收藏任何风格</h3>
-                    <p class="text-neutral-200 text-sm mb-4">提取你喜欢的图片风格，点击收藏按钮保存到这里</p>
-                    <button id="go-to-extract" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-                        开始提取风格
-                    </button>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- 页脚 -->
-    <footer class="bg-white border-t border-neutral-100 py-6 mt-12">
-        <div class="container mx-auto px-4 text-center text-neutral-300 text-sm">
-            <p>© 2025 StyleExtractor - 视觉风格提取工具 | 纯前端静态网站</p>
-            <p class="mt-1">无需注册登录，所有数据存储在本地浏览器中</p>
-        </div>
-    </footer>
-
-    <!-- 通知提示 -->
-    <div id="toast" class="fixed bottom-6 right-6 bg-neutral-500 text-white px-4 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50">
-        <span id="toast-message">操作成功</span>
+  <!-- 导航栏 -->
+  <header class="bg-white card-shadow sticky top-0 z-50">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa fa-paint-brush text-primary text-2xl"></i>
+        <h1 class="text-xl font-bold text-neutral-500">StyleExtractor</h1>
+      </div>
+      <nav class="hidden md:flex items-center space-x-6">
+        <button id="tab-extract" class="nav-tab active text-primary font-medium">风格提取</button>
+        <button id="tab-compare" class="nav-tab text-neutral-400 hover:text-neutral-500">风格对比</button>
+        <button id="tab-favorites" class="nav-tab text-neutral-400 hover:text-neutral-500">
+          我的收藏
+          <span id="fav-count" class="bg-primary text-white text-xs px-2 py-0.5 rounded-full ml-1">0</span>
+        </button>
+      </nav>
+      <button id="mobile-menu-btn" class="md:hidden text-neutral-400 hover:text-neutral-500">
+        <i class="fa fa-bars text-xl"></i>
+      </button>
     </div>
+    <div id="mobile-menu" class="md:hidden hidden bg-white border-t border-neutral-100">
+      <div class="container mx-auto px-4 py-2 flex flex-col space-y-3">
+        <button id="mobile-tab-extract" class="mobile-nav-tab active text-primary font-medium py-2">风格提取</button>
+        <button id="mobile-tab-compare" class="mobile-nav-tab text-neutral-400 py-2">风格对比</button>
+        <button id="mobile-tab-favorites" class="mobile-nav-tab text-neutral-400 py-2">我的收藏</button>
+      </div>
+    </div>
+  </header>
 
-    <!-- 引入JavaScript -->
-    <script src="script.js"></script>
+  <!-- 主内容 -->
+  <main class="flex-grow container mx-auto px-4 py-6 md:py-10">
+    <!-- 风格提取页 -->
+    <section id="extract-page" class="page">
+      <div class="max-w-4xl mx-auto">
+        <div class="text-center mb-8">
+          <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-neutral-500 mb-2">一键提取图片视觉风格</h2>
+          <p class="text-neutral-300 max-w-2xl mx-auto">上传图片或输入图片链接，自动提取色彩、字体、版式和风格描述，生成可直接使用的AI设计提示词</p>
+        </div>
+
+        <!-- 上传区域 -->
+        <div class="bg-white rounded-xl card-shadow p-6 mb-8">
+          <div class="flex flex-col md:flex-row gap-4 mb-6">
+            <div class="flex-1">
+              <label class="block text-neutral-400 mb-2 font-medium">上传图片</label>
+              <div id="upload-area" class="border-2 border-dashed border-neutral-100 rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors">
+                <input type="file" id="file-input" accept="image/*" class="hidden" />
+                <i class="fa fa-cloud-upload text-4xl text-neutral-200 mb-3"></i>
+                <p class="text-neutral-300 mb-1">点击或拖拽图片到这里</p>
+                <p class="text-xs text-neutral-200">支持 JPG, PNG, GIF, WebP 格式</p>
+              </div>
+            </div>
+            <div class="flex flex-col justify-center">
+              <div class="text-neutral-200 text-center py-4 md:py-0">
+                <span class="hidden md:inline">或者</span>
+                <span class="md:hidden">或者输入链接</span>
+              </div>
+            </div>
+            <div class="flex-1">
+              <label class="block text-neutral-400 mb-2 font-medium">图片链接</label>
+              <div class="flex gap-2">
+                <input
+                  type="url"
+                  id="image-url"
+                  placeholder="https://example.com/image.jpg"
+                  class="flex-1 px-4 py-2 border border-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                />
+                <button id="load-url-btn" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                  加载
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 预览 -->
+          <div id="preview-container" class="hidden mb-6">
+            <div class="flex justify-between items-center mb-2">
+              <h3 class="font-medium text-neutral-400">图片预览</h3>
+              <button id="clear-image-btn" class="text-neutral-200 hover:text-neutral-400 text-sm">
+                <i class="fa fa-times mr-1"></i> 清除
+              </button>
+            </div>
+            <div class="border border-neutral-100 rounded-lg overflow-hidden">
+              <img id="preview-image" src="" alt="预览图片" class="w-full h-auto max-h-80 object-contain" />
+            </div>
+          </div>
+
+          <!-- 提取按钮 -->
+          <button
+            id="extract-btn"
+            class="w-full bg-primary text-white py-3 rounded-lg font-medium hover:bg-primary/90 transition-colors disabled:bg-neutral-200 disabled:cursor-not-allowed"
+            disabled
+          >
+            <i class="fa fa-magic mr-2"></i> 提取视觉风格
+          </button>
+        </div>
+
+        <!-- 结果 -->
+        <div id="results-container" class="hidden space-y-6">
+          <!-- 颜色 -->
+          <div class="bg-white rounded-xl card-shadow p-6 hover-lift">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-semibold text-neutral-500">
+                <i class="fa fa-palette text-primary mr-2"></i> 色彩方案
+              </h3>
+              <button id="copy-colors-btn" class="text-sm text-primary hover:text-primary/80">
+                <i class="fa fa-copy mr-1"></i> 复制色值
+              </button>
+            </div>
+            <div id="colors-container" class="grid grid-cols-5 gap-3 mb-4"></div>
+            <div id="color-values" class="text-sm text-neutral-300 space-y-1"></div>
+          </div>
+
+          <!-- 风格分析 -->
+          <div class="bg-white rounded-xl card-shadow p-6 hover-lift">
+            <h3 class="text-lg font-semibold text-neutral-500 mb-4">
+              <i class="fa fa-eye text-primary mr-2"></i> 风格分析
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <h4 class="text-neutral-400 font-medium mb-2">整体风格</h4>
+                <div id="style-tags" class="flex flex-wrap gap-2 mb-4"></div>
+              </div>
+              <div>
+                <h4 class="text-neutral-400 font-medium mb-2">版式特征</h4>
+                <div id="layout-tags" class="flex flex-wrap gap-2 mb-4"></div>
+              </div>
+              <div>
+                <h4 class="text-neutral-400 font-medium mb-2">字体特征</h4>
+                <div id="font-tags" class="flex flex-wrap gap-2 mb-4"></div>
+              </div>
+              <div>
+                <h4 class="text-neutral-400 font-medium mb-2">情感氛围</h4>
+                <div id="mood-tags" class="flex flex-wrap gap-2 mb-4"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI提示词 -->
+          <div class="bg-white rounded-xl card-shadow p-6 hover-lift">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-semibold text-neutral-500">
+                <i class="fa fa-lightbulb-o text-primary mr-2"></i> AI设计提示词
+              </h3>
+              <button id="copy-prompt-btn" class="text-sm text-primary hover:text-primary/80">
+                <i class="fa fa-copy mr-1"></i> 复制提示词
+              </button>
+            </div>
+            <textarea
+              id="prompt-text"
+              rows="4"
+              class="w-full px-4 py-3 border border-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary text-neutral-400"
+              readonly
+            ></textarea>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button id="regenerate-prompt-btn" class="px-4 py-2 bg-neutral-50 text-neutral-400 rounded-lg hover:bg-neutral-100 transition-colors text-sm">
+                <i class="fa fa-refresh mr-1"></i> 重新生成
+              </button>
+              <button id="add-to-fav-btn" class="px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-colors text-sm">
+                <i class="fa fa-heart mr-1"></i> 收藏此风格
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 对比页（略，同之前） -->
+    <section id="compare-page" class="page hidden">
+      <div class="max-w-5xl mx-auto">
+        <div class="text-center mb-8">
+          <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-neutral-500 mb-2">风格对比工具</h2>
+          <p class="text-neutral-300 max-w-2xl mx-auto">上传两张图片，对比它们的视觉风格差异</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div class="bg-white rounded-xl card-shadow p-6">
+            <h3 class="font-medium text-neutral-400 mb-4">图片 1</h3>
+            <div id="compare-upload-1" class="border-2 border-dashed border-neutral-100 rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors mb-4">
+              <input type="file" id="compare-file-1" accept="image/*" class="hidden" />
+              <i class="fa fa-cloud-upload text-3xl text-neutral-200 mb-2"></i>
+              <p class="text-neutral-300 text-sm">点击上传图片</p>
+            </div>
+            <div id="compare-preview-1" class="hidden mb-4">
+              <img id="compare-img-1" src="" alt="对比图片1" class="w-full h-48 object-contain border border-neutral-100 rounded-lg" />
+            </div>
+            <button id="extract-compare-1" class="w-full bg-primary text-white py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:bg-neutral-200 disabled:cursor-not-allowed" disabled>
+              提取风格
+            </button>
+          </div>
+          <div class="bg-white rounded-xl card-shadow p-6">
+            <h3 class="font-medium text-neutral-400 mb-4">图片 2</h3>
+            <div id="compare-upload-2" class="border-2 border-dashed border-neutral-100 rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors mb-4">
+              <input type="file" id="compare-file-2" accept="image/*" class="hidden" />
+              <i class="fa fa-cloud-upload text-3xl text-neutral-200 mb-2"></i>
+              <p class="text-neutral-300 text-sm">点击上传图片</p>
+            </div>
+            <div id="compare-preview-2" class="hidden mb-4">
+              <img id="compare-img-2" src="" alt="对比图片2" class="w-full h-48 object-contain border border-neutral-100 rounded-lg" />
+            </div>
+            <button id="extract-compare-2" class="w-full bg-primary text-white py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:bg-neutral-200 disabled:cursor-not-allowed" disabled>
+              提取风格
+            </button>
+          </div>
+        </div>
+        <div id="compare-results" class="hidden">
+          <div class="bg-white rounded-xl card-shadow p-6 mb-6">
+            <h3 class="text-lg font-semibold text-neutral-500 mb-6 text-center">风格对比分析</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <h4 class="font-medium text-neutral-400 mb-3 text-center">图片 1 风格特征</h4>
+                <div id="compare-results-1" class="space-y-4"></div>
+              </div>
+              <div>
+                <h4 class="font-medium text-neutral-400 mb-3 text-center">图片 2 风格特征</h4>
+                <div id="compare-results-2" class="space-y-4"></div>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl card-shadow p-6">
+            <h3 class="text-lg font-semibold text-neutral-500 mb-4 text-center">综合对比</h3>
+            <div id="compare-summary" class="text-neutral-400 space-y-3"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 收藏页（略，同之前） -->
+    <section id="favorites-page" class="page hidden">
+      <div class="max-w-4xl mx-auto">
+        <div class="text-center mb-8">
+          <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-neutral-500 mb-2">我的收藏</h2>
+          <p class="text-neutral-300 max-w-2xl mx-auto">保存你喜欢的视觉风格和提示词</p>
+        </div>
+        <div class="bg-white rounded-xl card-shadow p-4 mb-6">
+          <div class="flex flex-wrap gap-2">
+            <button class="category-btn active px-4 py-2 bg-primary text-white rounded-lg text-sm" data-category="all">全部</button>
+            <button class="category-btn px-4 py-2 bg-neutral-50 text-neutral-400 rounded-lg hover:bg-neutral-100 text-sm" data-category="minimal">极简风格</button>
+            <button class="category-btn px-4 py-2 bg-neutral-50 text-neutral-400 rounded-lg hover:bg-neutral-100 text-sm" data-category="modern">现代风格</button>
+            <button class="category-btn px-4 py-2 bg-neutral-50 text-neutral-400 rounded-lg hover:bg-neutral-100 text-sm" data-category="vintage">复古风格</button>
+            <button class="category-btn px-4 py-2 bg-neutral-50 text-neutral-400 rounded-lg hover:bg-neutral-100 text-sm" data-category="other">其他风格</button>
+            <button id="clear-all-fav" class="ml-auto px-4 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm">
+              <i class="fa fa-trash mr-1"></i> 清空收藏
+            </button>
+          </div>
+        </div>
+        <div id="favorites-container" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+        <div id="empty-favorites" class="text-center py-16">
+          <i class="fa fa-heart-o text-5xl text-neutral-200 mb-4"></i>
+          <h3 class="text-neutral-300 font-medium mb-2">还没有收藏任何风格</h3>
+          <p class="text-neutral-200 text-sm mb-4">提取你喜欢的图片风格，点击收藏按钮保存到这里</p>
+          <button id="go-to-extract" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+            开始提取风格
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="bg-white border-t border-neutral-100 py-6 mt-12">
+    <div class="container mx-auto px-4 text-center text-neutral-300 text-sm">
+      <p>© 2025 StyleExtractor - 视觉风格提取工具 | 纯前端静态网站</p>
+      <p class="mt-1">无需注册登录，所有数据存储在本地浏览器中</p>
+    </div>
+  </footer>
+
+  <!-- 通知 -->
+  <div id="toast" class="fixed bottom-6 right-6 bg-neutral-500 text-white px-4 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+    <span id="toast-message">操作成功</span>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
